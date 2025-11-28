@@ -1,61 +1,110 @@
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
-
-//Templates de meta
 const {
   templates,
-  enviarPlantillaWhatsapp,
+  enviarPlantillaWhatsApp,
   enviarPlantillaErrorGenerico,
   enviarMensajeTexto,
-  procesarNumero,
 } = require("./whatsappTemplates");
 
-//url de mis apis
-const API_BASE_URL = "http://127.0.0.1:3000/apiChatBot"; // Aqui va la ruta XAMP de la API - Falta crear la API
-const sendTemplateMessage = enviarPlantillaWhatsapp;
+// Aliases para mayor claridad
+const sendTemplateMessage = enviarPlantillaWhatsApp;
 const sendTextMessage = enviarMensajeTexto;
-//Diccionarios
-const keywords = {
-  //Diccioario y palabras claves
-};
 
-//Funcionesa asincronas
-async function crearSesion(phone) {
+const dicc = "hola";
+
+async function enviarPlantillaDesdeAPI({ from, url, templateName }) {
   try {
-    const response = await axios.post(`${API_BASE_URL}/sesion.php`, { phone });
-    return response.data;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Status ${response.status}`);
+    const data = await response.json();
+    let items = [];
+    if (data.menu) {
+      items = data.menu.map((e) => `${e.nombre} - $${e.precio}`);
+    } else if (data.ofertas) {
+      items = data.ofertas.map((e) => e.descripcion);
+    }
+    const textoFinal = items.join("\n");
+
+    const logsDir = path.join(__dirname, "logs");
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    const logEntry =
+      new Date().toISOString() +
+      " - Respuesta API " +
+      templateName +
+      ": " +
+      JSON.stringify(data) +
+      "\n";
+    fs.appendFileSync(path.join(logsDir, "api_log.txt"), logEntry);
+
+    if (textoFinal) {
+      await sendTemplateMessage(from, templateName, textoFinal);
+    } else {
+      await sendTextMessage(from, "No se pudo cargar el contenido.");
+    }
   } catch (error) {
-    console.error("Error creando sesion: ", error);
-    return { success: false, error: error.message };
+    const logsDir = path.join(__dirname, "logs");
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    const logEntry =
+      new Date().toISOString() +
+      " - Error API " +
+      templateName +
+      ": " +
+      error.message +
+      "\n";
+    fs.appendFileSync(path.join(logsDir, "api_log.txt"), logEntry);
+    await sendTextMessage(from, "No se pudo cargar el contenido.");
   }
 }
 
-//Funciones de lógica
-function normalizeText(text) {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quitar acentos
-    .replace(/[^\w\s]/g, " ") // quitar caracteres especiales
-    .replace(/\s+/g, " ")
-    .trim();
-}
+async function handleIncomingMessage(payload) {
+  // Log de la solicitud entrante para depuración
+  fs.appendFileSync(
+    "debug_post_log.txt",
+    `${new Date().toISOString()} - POST Request: ${JSON.stringify(payload)}\n`
+  );
 
-//Priorizar frases
-async function findAction(text, phoneNumber) {
-  const normalizedText = normalizeText(text);
-  const matches = [];
-  for (const [action, keywordList] of Object.entries(keywords)) {
-    for (const keyword of keywordList) {
-      const normalizedKeyword = normalizeText(keyword);
-      if (normalizedText.includes(normalizedKeyword)) {
-        matches.push({
-          action,
-          keyword: normalizedKeyword,
-          length: normalizedKeyword.length,
-        });
-      }
+  // Validación básica de la estructura del payload
+  const firstEntry = payload.entry?.[0];
+  const firstChange = firstEntry?.changes?.[0];
+  const firstMessage = firstChange?.value?.messages?.[0];
+
+  if (!firstMessage) {
+    console.log("Payload sin mensajes válidos");
+    return;
+  }
+
+  const message = firstMessage;
+  console.log("\ud83d\udce9 Mensaje recibido:", message);
+
+  if (!message.type) return;
+
+  const from = message.from;
+
+  if (message.type === "text") {
+    const body = message.text?.body?.toLowerCase() || "";
+    if (body.includes(dicc)) {
+      await sendTemplateMessage(from, "menu_inicio");
+    }
+  } else if (message.type === "button" && message.button?.payload) {
+    const btnPayload = message.button.payload.toLowerCase();
+    if (btnPayload === "ver menu de hoy") {
+      await enviarPlantillaDesdeAPI({
+        url: "https://grp-ia.com/bitacora-residentes/menu.php",
+        templateName: "menu_hoy",
+        from,
+      });
+    } else if (btnPayload === "ver ofertas del dia") {
+      await enviarPlantillaDesdeAPI({
+        url: "https://grp-ia.com/bitacora-residentes/ofertas.php",
+        templateName: "ofertas_dia",
+        from,
+      });
+    } else if (btnPayload === "salir") {
+      await sendTextMessage(from, "¡Gracias por visitarnos!");
     }
   }
 }
+
+
+module.exports = handleIncomingMessage;
