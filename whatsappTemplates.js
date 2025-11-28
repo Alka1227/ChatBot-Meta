@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require("fs");
+require('dotenv').config();
 
 const templates = {
   MENU_INICIO: "menu_inicio",
@@ -17,8 +18,8 @@ function sanitize(text) {
 
 // Token de acceso generado en la consola de Meta
 
-const accessToken = "EAAL2TxBDqnEBP8yGn7vRBjIdIqZC6zjjyekp09Q4XzBsScxYDyD9UwCyCf9eHZAj4pp9lbRqDZAOlZBlxKlSwn6wMZCV7Fbp8RnHCjTsltiXBWPrrlOeOPHC0sibnDoO9QexqV8qZCkJW7UAlyZCQ0Xc0Tm7Jq75f5WZAjuN5EbSwY0eCT27xyhtIwSELXYBzgZDZD";
-const phoneNumberId = "866306696566425";
+const accessToken = process.env.BEREAER_TOKEN;
+const phoneNumberId = process.env.PHONE_NUMBER_ID;
 
 // Función para limpiar y validar el número
 function procesarNumero(to) {
