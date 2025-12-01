@@ -1,3 +1,4 @@
+// whatsappTemplates.js
 const axios = require('axios');
 const fs = require("fs");
 require('dotenv').config();
@@ -7,6 +8,7 @@ const templates = {
   AGENDAR_PEDIDO: "agendar_pedido",
   CATALOGO: "catalogo",
   ERROR_GENERICO: "error_generico",
+  PAGINA_WEB: "pagina_web",
 };
 
 // Utilidad para limpiar texto y asegurar longitud
@@ -57,15 +59,40 @@ async function enviarPayload(to, templateName, components = []) {
 }
 
 // Funciones específicas
-async function enviarPlantillaWhatsApp(to, templateName, text = "") {
-  const components = text
-    ? [
-        {
-          type: "body",
-          parameters: [{ type: "text", text: sanitize(text) }],
-        },
-      ]
-    : [];
+async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
+  const components = []
+    if (templateParams.header){
+      const header = templateParams.header;
+      const headerComponent = {
+        type: "header",
+        parameters: [], 
+    };
+    if (header.type === "image" && header.link) {
+      headerComponent.parameters.push({
+        type: "image",
+        image: { link: header.link },
+      });
+    } else if (header.type === "text" && header.text) {
+      headerComponent.parameters.push({
+        type: "text",
+        text: sanitize(header.text),
+      });
+    }
+    if (headerComponent.parameters.length > 0) {
+      components.push(headerComponent);
+    }
+  }
+
+  if (Array.isArray(templateParams.body) && templateParams.body.length > 0){
+    const bodyParameters = templateParams.body.map((text) => ({
+      type: "text",
+      text: sanitize(text),
+    }));
+    components.push({
+      type: "body",
+      parameters: bodyParameters,
+    });
+  }
   await enviarPayload(to, templateName, components);
 }
 
@@ -116,6 +143,50 @@ function logError(payload, error) {
   console.error("Error enviando plantilla:", errorData);
 }
 
+const TEMPLATE_DEFINITIONS = {
+  [templates.MENU_INICIO]: (userName, imageUrl) => [
+    {
+      type: "header",
+      parameters: [{ type: "image", image: {link: imageUrl} }],
+    },
+    {
+      type: "body",
+      parameters: [{ type: "text", text: userName}],
+    }
+  ],
+  [templates.AGENDAR_PEDIDO]: (producto, precio, imageUrl) => [
+    {
+      type:"header",
+      parameters: [{type: "image", image: {link: imageUrl} }],
+    },
+    {
+      type: "body",
+      parameters: [
+        {type: "text", text: producto},
+        {type: "text", text: precio},
+      ],
+    }
+  ],
+  [templates.CATALOGO]: (userName) => [
+    {
+      type:"body",
+      parameters: [{ type: "text", text: sanitize(userName)}],
+    }
+  ],
+  [templates.ERROR_GENERICO]: (errorMessage) => [
+    {
+      type:"body",
+      parameters: [{ type: "text", text: sanitize(errorMessage)}],
+    },
+  ],
+  [templates.PAGINA_WEB]: (imageUrl) => [
+    {
+      type: "header",
+      parameters: [{ type: "image", image: {link: imageUrl} }],
+    },
+  ],
+}
+
 module.exports = {
   templates,
   enviarPlantillaWhatsApp,
@@ -161,4 +232,31 @@ module.exports = {
     ]
   }
 }
+
+Body example de pagina web
+{
+  "messaging_product": "whatsapp",
+  "to": "526181556489",
+  "type": "template",
+  "template": {
+    "name": "pagina_web",
+    "language": {
+      "code": "es_MX"
+    },
+    "components": [
+      {
+        "type": "header",
+        "parameters": [
+          {
+            "type": "image",
+            "image": {
+              "link": "https://amigosafety.com/images/productos/1680213793_PANTALON%20FRENTE.png" 
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
 */
