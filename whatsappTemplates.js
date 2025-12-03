@@ -143,6 +143,7 @@ function logError(payload, error) {
   console.error("Error enviando plantilla:", errorData);
 }
 
+/*
 const TEMPLATE_DEFINITIONS = {
   [templates.MENU_INICIO]: (userName, imageUrl) => [
     {
@@ -185,7 +186,7 @@ const TEMPLATE_DEFINITIONS = {
       parameters: [{ type: "image", image: {link: imageUrl} }],
     },
   ],
-}
+}*/
 
 module.exports = {
   templates,

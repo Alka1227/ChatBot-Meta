@@ -43,7 +43,7 @@ function normalizeInput(text) {
 }
 
 /* Esta funcion es del profe y es para jalar datos de la API de XAMP, yo no tengo eso 
-async function enviarPlantillaDesdeAPI({ from, url, templateName }) {
+async function envñI({ from, url, templateName }) {
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Status ${response.status}`);

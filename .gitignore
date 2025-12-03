@@ -1,3 +1,6 @@
 .env
-
-
+node_modules/
+logs/
+apiLog.txt
+template_log.txt
+debug_post_log.txt
