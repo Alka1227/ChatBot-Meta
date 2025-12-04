@@ -16,6 +16,9 @@ const IMAGEN_MENU = "https://amigosafety.com/images/productos/1680213793_PANTALO
 const IMAGEN_PEDIDO = "https://placehold.co/600x400/png?text=Imagen+Pedido";
 const IMAGEN_PAGINA_WEB = "https://cdn-icons-png.flaticon.com/512/174/174855.png";
 const NOMBRE_DEFAULT = "Cliente";
+const IP_LOCAL = process.env.IP_LOCAL || "192.168.1.2";
+const URL_API_PHP = `http://${IP_LOCAL}/chatbotAPI/api.php`;
+const URL_PDF_CATALOGO = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
 
 //Diccionarios de palabras clave
 const GREETINGS = new Set([
@@ -42,52 +45,66 @@ function normalizeInput(text) {
     .trim();
 }
 
-/* Esta funcion es del profe y es para jalar datos de la API de XAMP, yo no tengo eso 
-async function envñI({ from, url, templateName }) {
+// Esta función busca un producto y envía la plantilla AGENDAR_PEDIDO con los datos reales
+async function obtenerProductoYEnviarPlantilla(from, busqueda = "") {
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Status ${response.status}`);
-    const data = await response.json();
-    
-    // Procesamos items de la API
-    let items = [];
-    if (data.menu) {
-      items = data.menu.map((e) => ({ nombre: e.nombre, precio: e.precio }));
-    } else if (data.ofertas) {
-      items = data.ofertas.map((e) => ({ nombre: e.descripcion, precio: "N/A" }));
+    // Construimos la URL. Si hay búsqueda usamos ?nombre=X, si no, traemos todo.
+    let urlFinal = URL_API_PHP;
+    if (busqueda) {
+        urlFinal += `?nombre=${encodeURIComponent(busqueda)}`;
     }
 
-    // Log
+    console.log(`Consultando API PHP: ${urlFinal}`);
+    
+    const response = await fetch(urlFinal);
+    
+    // Verificamos si la respuesta es exitosa
+    if (!response.ok) throw new Error(`Error API PHP status: ${response.status}`);
+    
+    // Convertimos la respuesta a JSON
+    // Tu PHP devuelve un array: [{"id":"1", "nombre":"Camisa", ...}]
+    const productos = await response.json(); 
+    
+    // Guardamos log de lo que respondió PHP
     const logsDir = path.join(__dirname, "logs");
     if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
     fs.appendFileSync(path.join(logsDir, "api_log.txt"), 
-      `${new Date().toISOString()} - API ${templateName}: ${JSON.stringify(data)}\n`
+      `${new Date().toISOString()} - PHP Response: ${JSON.stringify(productos)}\n`
     );
 
-    if (items.length > 0) {
-      let templateParams = {};
+    // Validamos que sea un array y tenga datos
+    if (Array.isArray(productos) && productos.length > 0) {
+      
+      // Tomamos el PRIMER producto encontrado para llenar la plantilla
+      const producto = productos[0]; 
 
-      if (templateName === templates.AGENDAR_PEDIDO) {
-        const item = items[0]; 
-        templateParams = {
-          header: { type: "image", link: IMAGEN_PEDIDO },
-          body: [item.nombre, item.precio || "Consultar"]
-        };
-      } else {
-        const texto = items.map(i => i.nombre).join("\n");
-        templateParams = { body: [texto] };
-      }
+      // Preparamos los parámetros para la plantilla AGENDAR_PEDIDO
+      // {{1}} = producto.nombre
+      // {{2}} = producto.precio
+      const templateParams = {
+        header: { type: "image", link: IMAGEN_PEDIDO },
+        body: [
+            producto.nombre,    // Variable {{1}}
+            `${producto.precio}` // Variable {{2}}
+        ]
+      };
 
-      await sendTemplateMessage(from, templateName, templateParams);
+      console.log(`Producto encontrado: ${producto.nombre} - $${producto.precio}`);
+      
+      // Enviamos la plantilla
+      await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, templateParams);
+
     } else {
-      await sendTextMessage(from, "No encontramos información disponible.");
+      console.log("La API PHP respondió, pero no trajo productos o el array está vacío.");
+      await sendTextMessage(from, "Lo siento, no encontramos información del producto en este momento.");
     }
 
   } catch (error) {
-    console.error("Error API:", error);
-    await sendTextMessage(from, "Hubo un error al consultar la información.");
+    console.error("Error conectando con API PHP:", error);
+    // Si falla la API, enviamos un mensaje de error genérico al usuarioñ
+    await sendTextMessage(from, "Ocurrió un error al consultar el catálogo.");
   }
-} */
+}
 
 async function handleIncomingMessage(payload) {
   // Log request
@@ -146,12 +163,12 @@ async function handleIncomingMessage(payload) {
     await sendTemplateMessage(from, templates.CATALOGO, {
         body: [NOMBRE_DEFAULT]
     });
+    await sendDocumentMessage(from, URL_PDF_CATALOGO, "Aquí tienes nuestro catálogo 📄");
   }
   
   // C. PUNTO DE ENCUENTRO O ENVÍO
   else if (userIntention.includes("punto de encuentro") || userIntention.includes("envio")) {
     // Mandamos la plantilla pagina_web
-    // Asumimos que pagina_web tiene un Header de imagen y NO tiene variables de texto (o texto estático)
     await sendTemplateMessage(from, templates.PAGINA_WEB, {
         header: { type: "image", link: IMAGEN_PAGINA_WEB }
     });
@@ -159,10 +176,7 @@ async function handleIncomingMessage(payload) {
 
   // D. AGENDAR PEDIDO
   else if (userIntention.includes("agendar") || userIntention.includes("pedido") || userIntention.includes("ofertas")) {
-    await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, {
-      header: { type: "image", link: IMAGEN_PEDIDO },
-      body: ["Producto Ejemplo", "$150.00"]
-    });
+    await obtenerProductoYEnviarPlantilla(from, "Pantalon"); 
   }
   
   // E. SALIR
