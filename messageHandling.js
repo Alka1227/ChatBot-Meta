@@ -12,12 +12,11 @@ const sendTemplateMessage = enviarPlantillaWhatsApp;
 const sendTextMessage = enviarMensajeTexto;
 
 // --- CONSTANTES ---
-const IMAGEN_MENU = "https://amigosafety.com/images/productos/1680213793_PANTALON%20FRENTE.png";
-const IMAGEN_PEDIDO = "https://placehold.co/600x400/png?text=Imagen+Pedido";
+const IMAGEN_MENU = "https://play-lh.googleusercontent.com/IVI0a5ikpBt6BMclofFoupP4kBLHqC4VJWWjwbJnd_4UfDSmf1z6MepZbbXPeALnw0He";
+const IMAGEN_PEDIDO = "https://play-lh.googleusercontent.com/IVI0a5ikpBt6BMclofFoupP4kBLHqC4VJWWjwbJnd_4UfDSmf1z6MepZbbXPeALnw0He";
 const IMAGEN_PAGINA_WEB = "https://cdn-icons-png.flaticon.com/512/174/174855.png";
-const NOMBRE_DEFAULT = "Cliente";
 const IP_LOCAL = process.env.IP_LOCAL || "192.168.1.2";
-const URL_API_PHP = `http://${IP_LOCAL}/chatbotAPI/api.php`;
+const URL_API_PHP = `http://${IP_LOCAL}/chatbotAPI/`;
 const URL_PDF_CATALOGO = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
 
 //Diccionarios de palabras clave
@@ -45,66 +44,87 @@ function normalizeInput(text) {
     .trim();
 }
 
-// Esta función busca un producto y envía la plantilla AGENDAR_PEDIDO con los datos reales
-async function obtenerProductoYEnviarPlantilla(from, busqueda = "") {
+// Esta función busca un producto o conjunto y envía la plantilla AGENDAR_PEDIDO
+async function procesarBusquedaProductos(from, textoUsuario) {
   try {
-    // Construimos la URL. Si hay búsqueda usamos ?nombre=X, si no, traemos todo.
-    let urlFinal = URL_API_PHP;
-    if (busqueda) {
-        urlFinal += `?nombre=${encodeURIComponent(busqueda)}`;
+    const terminosBusqueda = textoUsuario.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+    let productosEncontrados = [];
+    let precioTotal = 0;
+
+    console.log(`Buscando: ${terminosBusqueda.join(" | ")}`);
+
+    for (const termino of terminosBusqueda) {
+
+      let productoEncontrado = null;
+
+      //Buscar en productos
+      try {
+        const urlProductos = `${URL_API_PHP}/api.php?nombre=${encodeURIComponent(termino)}`;
+        const resProd = await fetch(urlProductos);
+
+        if (resProd.ok) {
+          const data = await resProd.json();
+
+          if (Array.isArray(data) && data.length > 0) {
+            productoEncontrado = data[0];
+          }
+        }
+      } catch (e) {
+        console.log("Error buscando en productos:", e.message);
+      }
+
+      //Si no se encontró, buscar en conjuntos
+      if (!productoEncontrado) {
+        try {
+          const urlConjuntos = `${URL_API_PHP}/conjuntos?nombre=${encodeURIComponent(termino)}`;
+          const resConj = await fetch(urlConjuntos);
+
+          if (resConj.ok) {
+            const data = await resConj.json();
+
+            if (Array.isArray(data) && data.length > 0) {
+              productoEncontrado = data[0];
+            }
+          }
+        } catch (e) {
+          console.log("Error buscando en conjuntos:", e.message);
+        }
+      }
+
+      //Si no encontro en ninguno
+      if (!productoEncontrado) continue;
+      productosEncontrados.push(productoEncontrado.nombre);
+      const precioFloat = parseFloat(String(productoEncontrado.precio).replace(/[^0-9.]/g, ""));
+
+      if (isNaN(precioFloat) || precioFloat <= 0) {
+        console.log("Precio inválido detectado:", productoEncontrado.precio);
+        continue;  
+      }
+
+      precioTotal += precioFloat;
     }
 
-    console.log(`Consultando API PHP: ${urlFinal}`);
-    
-    const response = await fetch(urlFinal);
-    
-    // Verificamos si la respuesta es exitosa
-    if (!response.ok) throw new Error(`Error API PHP status: ${response.status}`);
-    
-    // Convertimos la respuesta a JSON
-    // Tu PHP devuelve un array: [{"id":"1", "nombre":"Camisa", ...}]
-    const productos = await response.json(); 
-    
-    // Guardamos log de lo que respondió PHP
-    const logsDir = path.join(__dirname, "logs");
-    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-    fs.appendFileSync(path.join(logsDir, "api_log.txt"), 
-      `${new Date().toISOString()} - PHP Response: ${JSON.stringify(productos)}\n`
-    );
-
-    // Validamos que sea un array y tenga datos
-    if (Array.isArray(productos) && productos.length > 0) {
-      
-      // Tomamos el PRIMER producto encontrado para llenar la plantilla
-      const producto = productos[0]; 
-
-      // Preparamos los parámetros para la plantilla AGENDAR_PEDIDO
-      // {{1}} = producto.nombre
-      // {{2}} = producto.precio
-      const templateParams = {
-        header: { type: "image", link: IMAGEN_PEDIDO },
-        body: [
-            producto.nombre,    // Variable {{1}}
-            `${producto.precio}` // Variable {{2}}
-        ]
-      };
-
-      console.log(`Producto encontrado: ${producto.nombre} - $${producto.precio}`);
-      
-      // Enviamos la plantilla
-      await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, templateParams);
-
-    } else {
-      console.log("La API PHP respondió, pero no trajo productos o el array está vacío.");
-      await sendTextMessage(from, "Lo siento, no encontramos información del producto en este momento.");
+    //Respuesta al usuario
+    if (productosEncontrados.length === 0) {
+      await sendTextMessage(from, `No encontré ninguno de los productos de: "${textoUsuario}".`);
+      return;
     }
+
+    const lista = productosEncontrados.join(" + ");
+    const precioFinal = precioTotal.toFixed(2);
+
+    await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, {
+      header: { type: "image", link: IMAGEN_PEDIDO },
+      body: [lista, precioFinal]
+    });
 
   } catch (error) {
-    console.error("Error conectando con API PHP:", error);
-    // Si falla la API, enviamos un mensaje de error genérico al usuarioñ
-    await sendTextMessage(from, "Ocurrió un error al consultar el catálogo.");
+    console.error("Error general:", error);
+    await sendTextMessage(from, "Ocurrió un error al consultar los productos.");
   }
 }
+
 
 async function handleIncomingMessage(payload) {
   // Log request
@@ -132,10 +152,12 @@ async function handleIncomingMessage(payload) {
 
 //Obtener y limpiar el texto del mensaje para detectar intención
   
-  let userIntention = ""; 
+  let userIntention = "";
+  let rawText = ""; 
   //Normalizamos el texto según el tipo de mensaje que recibe
-  if (message.type === "text") { 
-    userIntention = normalizeInput(message.text?.body);
+  if (message.type === "text") {
+    rawText = message.text?.body || ""; 
+    userIntention = normalizeInput(rawText);
   } 
   else if (message.type === "interactive" && message.interactive.type === "button_reply") {
     userIntention = normalizeInput(message.interactive.button_reply.title);
@@ -160,10 +182,9 @@ async function handleIncomingMessage(payload) {
 
   // B. CATÁLOGO
   if (userIntention.includes("catalogo") || userIntention.includes("ver menu")) {
-    await sendTemplateMessage(from, templates.CATALOGO, {
-        body: [NOMBRE_DEFAULT]
+    await sendTemplateMessage(from, templates.CATALOGO, { 
+      header: { type: "document", link: URL_PDF_CATALOGO },
     });
-    await sendDocumentMessage(from, URL_PDF_CATALOGO, "Aquí tienes nuestro catálogo 📄");
   }
   
   // C. PUNTO DE ENCUENTRO O ENVÍO
@@ -176,15 +197,21 @@ async function handleIncomingMessage(payload) {
 
   // D. AGENDAR PEDIDO
   else if (userIntention.includes("agendar") || userIntention.includes("pedido") || userIntention.includes("ofertas")) {
-    await obtenerProductoYEnviarPlantilla(from, "Pantalon"); 
+    await procesarBusquedaProductos(from, "Pantalon"); 
   }
   
   // E. SALIR
   else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
     await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
   }
+
+  // F. BÚSQUEDA DE PRODUCTOS
+  else if (message.type === "text") {
+    // Asumimos que cualquier otro texto es una búsqueda de productos
+    await procesarBusquedaProductos(from, rawText);
+  }
   
-  // F. OPCIÓN NO RECONOCIDA
+  // G. OPCIÓN NO RECONOCIDA
   else if (message.type !== "text") {
     await sendTextMessage(from, "Opción no reconocida. Por favor escribe 'Hola' para ver el menú.");
   }

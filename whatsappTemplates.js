@@ -6,13 +6,14 @@ require('dotenv').config();
 const templates = {
   MENU_INICIO: "menu_inicio",
   AGENDAR_PEDIDO: "agendar_pedido",
-  CATALOGO: "catalogo",
+  CATALOGO: "catalogo_pdf",
   ERROR_GENERICO: "error_generico",
   PAGINA_WEB: "pagina_web",
 };
 
 // Utilidad para limpiar texto y asegurar longitud
 function sanitize(text) {
+  if (typeof text !== 'string') text = String(text);
   const cleaned = text.replace(/[\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
   return cleaned.slice(0, 1024);
 }
@@ -26,6 +27,7 @@ const phoneNumberId = process.env.PHONE_NUMBER_ID;
 // Función para limpiar y validar el número
 function procesarNumero(to) {
   if (!to) throw new Error("Número de destinatario no válido");
+  to = String(to)
   return to.startsWith("521") ? to.replace(/^521/, "52") : to;
 }
  
@@ -93,9 +95,41 @@ async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
       parameters: bodyParameters,
     });
   }
+
+  if (components.length === 0) {
+    throw new Error(`La plantilla "${templateName}" requiere components y se envió vacía.`);
+  }
   await enviarPayload(to, templateName, components);
 }
 
+/*
+async function enviarMensajeDocumento(to, url) {
+  const payload = {
+    messaging_product: "whatsapp",
+    to: procesarNumero(to),
+    type: "document",
+    document: {
+      link: url,
+      filename: "Catalogo.pdf" // Nombre con el que se descarga
+    },
+  };
+
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
+      payload,
+      { headers }
+    );
+    logExitoso(payload, response.data);
+  } catch (error) {
+    logError(payload, error);
+  }
+}*/
 
 async function enviarPlantillaErrorGenerico(to, errorMessage) {
   const components = [
