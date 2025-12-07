@@ -61,25 +61,24 @@ async function enviarPayload(to, templateName, components = []) {
 
 //Funcion generica para enviar plantillas específicas
 async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
-  const components = []
-    if (templateParams.header){
+  const components = [] //Array vacio para agregar componentes según la plantilla
+    if (templateParams.header){ //Si hay hedaer se agrega
       const header = templateParams.header;
-      const headerComponent = {
+      const headerComponent = { //Componente constructor para el header
         type: "header",
         parameters: [], 
     };
-    if (header.type === "image" && header.link) {
+    if (header.type === "image" && header.link) { //Si el header es imagen
       headerComponent.parameters.push({
         type: "image",
         image: { link: header.link },
       });
-    } else if (header.type === "text" && header.text) {
+    } else if (header.type === "text" && header.text) {//Si el header es texto
       headerComponent.parameters.push({
         type: "text",
         text: sanitize(header.text),
       });
-    } else if (header.type === "document" && header.link) {
-      // Manejo de documentos en el header de la plantilla
+    } else if (header.type === "document" && header.link) { //Si el header es documento
       headerComponent.parameters.push({
         type: "document",
         document: {
@@ -93,21 +92,21 @@ async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
     }
   }
 
-  if (Array.isArray(templateParams.body) && templateParams.body.length > 0){
-    const bodyParameters = templateParams.body.map((text) => ({
+  if (Array.isArray(templateParams.body) && templateParams.body.length > 0){ //Verifica que templateParams.body sea un aaray con al menos un elemento
+    const bodyParameters = templateParams.body.map((text) => ({ //Mapea cada elemento del array body a un objeto
       type: "text",
       text: sanitize(text),
     }));
-    components.push({
+    components.push({ //Lo agrega a components
       type: "body",
       parameters: bodyParameters,
     });
   }
 
-  if (components.length === 0 && templateName != templates.PEDIDO) {
+  if (components.length === 0 && templateName != templates.PEDIDO) { //Si components esta vacio y no es plantilla PEDIDO regresa un error
     throw new Error(`La plantilla "${templateName}" requiere components y se envió vacía.`);
   }
-  await enviarPayload(to, templateName, components);
+  await enviarPayload(to, templateName, components); //Envia los components construidos con la función enviarPayload
 }
 
 async function enviarPlantillaErrorGenerico(to, errorMessage) {

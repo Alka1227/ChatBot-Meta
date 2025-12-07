@@ -47,10 +47,10 @@ function normalizeInput(text) {
 // Esta función busca un producto o conjunto y envía la plantilla AGENDAR_PEDIDO
 async function procesarBusquedaProductos(from, textoUsuario) {
   try {
-    const terminosBusqueda = textoUsuario.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    const terminosBusqueda = textoUsuario.split(',').map(t => t.trim()).filter(t => t.length > 0); //Divide por comas y limpia
 
-    let productosEncontrados = [];
-    let precioTotal = 0;
+    let productosEncontrados = []; //Array para almacenar nombres de productos encontrados
+    let precioTotal = 0; //Precio acumulado
 
     console.log(`Buscando: ${terminosBusqueda.join(" | ")}`);
 
@@ -60,14 +60,14 @@ async function procesarBusquedaProductos(from, textoUsuario) {
 
       //Buscar en productos
       try {
-        const urlProductos = `${URL_API_PHP}/api.php?nombre=${encodeURIComponent(termino)}`;
+        const urlProductos = `${URL_API_PHP}/api.php?nombre=${encodeURIComponent(termino)}`; //Endpoint de productos
         const resProd = await fetch(urlProductos);
 
-        if (resProd.ok) {
-          const data = await resProd.json();
+        if (resProd.ok) { //Si la respuesta es OK
+          const data = await resProd.json(); //Parsea a JSON y lo guarda
 
-          if (Array.isArray(data) && data.length > 0) {
-            productoEncontrado = data[0];
+          if (Array.isArray(data) && data.length > 0) { //Verifica que haya resultados
+            productoEncontrado = data[0]; //Toma el primer producto encontrado
           }
         }
       } catch (e) {
@@ -77,7 +77,7 @@ async function procesarBusquedaProductos(from, textoUsuario) {
       //Si no se encontró, buscar en conjuntos
       if (!productoEncontrado) {
         try {
-          const urlConjuntos = `${URL_API_PHP}/conjuntos.php?nombre=${encodeURIComponent(termino)}`;
+          const urlConjuntos = `${URL_API_PHP}/conjuntos.php?nombre=${encodeURIComponent(termino)}`; //Endpoint de conjuntos
           const resConj = await fetch(urlConjuntos);
 
           if (resConj.ok) {
@@ -94,15 +94,15 @@ async function procesarBusquedaProductos(from, textoUsuario) {
 
       //Si no encontro en ninguno
       if (!productoEncontrado) continue;
-      productosEncontrados.push(productoEncontrado.nombre);
-      const precioFloat = parseFloat(String(productoEncontrado.precio).replace(/[^0-9.]/g, ""));
+      productosEncontrados.push(productoEncontrado.nombre); //Si no encontro todos, manda los que si
+      const precioFloat = parseFloat(String(productoEncontrado.precio).replace(/[^0-9.]/g, "")); //Limpia y convierte el precio a float
 
       if (isNaN(precioFloat) || precioFloat <= 0) {
         console.log("Precio inválido detectado:", productoEncontrado.precio);
         continue;  
       }
 
-      precioTotal += precioFloat;
+      precioTotal += precioFloat; //Esto se hace por cada producto encontrado para acumular el precio
     }
 
     //Respuesta al usuario
@@ -111,8 +111,8 @@ async function procesarBusquedaProductos(from, textoUsuario) {
       return;
     }
 
-    const lista = productosEncontrados.join(" + ");
-    const precioFinal = precioTotal.toFixed(2);
+    const lista = productosEncontrados.join(" + "); //Une los nombres de productos con " + "
+    const precioFinal = precioTotal.toFixed(2); //Precio total con 2 decimales
 
     await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, {
       header: { type: "image", link: IMAGEN_PEDIDO },
@@ -150,7 +150,7 @@ async function handleIncomingMessage(payload) {
   const from = message.from;
 
 
-//Obtener y limpiar el texto del mensaje para detectar intención
+//Obtener y limpiar el texto del mensaje para detectar la intención del texto
   
   let userIntention = "";
   let rawText = ""; 
@@ -201,16 +201,15 @@ async function handleIncomingMessage(payload) {
     await sendTemplateMessage(from, templates.PEDIDO, {}); 
   }
 
+  // E. SALIR
+  else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
+    await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
+  }
 
-  // E. BÚSQUEDA DE PRODUCTOS
+  // F. BÚSQUEDA DE PRODUCTOS
   else if (message.type === "text") {
     // Asumimos que cualquier otro texto es una búsqueda de productos
     await procesarBusquedaProductos(from, rawText);
-  }
-  
-  // F. SALIR
-  else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
-    await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
   }
 
   // G. OPCIÓN NO RECONOCIDA
