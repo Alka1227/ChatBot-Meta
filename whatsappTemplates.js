@@ -1,4 +1,3 @@
-// whatsappTemplates.js
 const axios = require('axios');
 const fs = require("fs");
 require('dotenv').config();
@@ -9,6 +8,7 @@ const templates = {
   CATALOGO: "catalogo_pdf",
   ERROR_GENERICO: "error_generico",
   PAGINA_WEB: "pagina_web",
+  PEDIDO: "pedido",
 };
 
 // Utilidad para limpiar texto y asegurar longitud
@@ -20,7 +20,6 @@ function sanitize(text) {
 
 
 // Token de acceso generado en la consola de Meta
-
 const accessToken = process.env.BEREAER_TOKEN;
 const phoneNumberId = process.env.PHONE_NUMBER_ID;
 
@@ -60,7 +59,7 @@ async function enviarPayload(to, templateName, components = []) {
   }
 }
 
-// Funciones específicas
+//Funcion generica para enviar plantillas específicas
 async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
   const components = []
     if (templateParams.header){
@@ -79,6 +78,15 @@ async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
         type: "text",
         text: sanitize(header.text),
       });
+    } else if (header.type === "document" && header.link) {
+      // Manejo de documentos en el header de la plantilla
+      headerComponent.parameters.push({
+        type: "document",
+        document: {
+          link: header.link,
+          filename: header.filename || "Catalogo.pdf"
+        }
+      });
     }
     if (headerComponent.parameters.length > 0) {
       components.push(headerComponent);
@@ -96,40 +104,11 @@ async function enviarPlantillaWhatsApp(to, templateName, templateParams = {}) {
     });
   }
 
-  if (components.length === 0) {
+  if (components.length === 0 && templateName != templates.PEDIDO) {
     throw new Error(`La plantilla "${templateName}" requiere components y se envió vacía.`);
   }
   await enviarPayload(to, templateName, components);
 }
-
-/*
-async function enviarMensajeDocumento(to, url) {
-  const payload = {
-    messaging_product: "whatsapp",
-    to: procesarNumero(to),
-    type: "document",
-    document: {
-      link: url,
-      filename: "Catalogo.pdf" // Nombre con el que se descarga
-    },
-  };
-
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    "Content-Type": "application/json",
-  };
-
-  try {
-    const response = await axios.post(
-      `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`,
-      payload,
-      { headers }
-    );
-    logExitoso(payload, response.data);
-  } catch (error) {
-    logError(payload, error);
-  }
-}*/
 
 async function enviarPlantillaErrorGenerico(to, errorMessage) {
   const components = [
@@ -177,121 +156,9 @@ function logError(payload, error) {
   console.error("Error enviando plantilla:", errorData);
 }
 
-/*
-const TEMPLATE_DEFINITIONS = {
-  [templates.MENU_INICIO]: (userName, imageUrl) => [
-    {
-      type: "header",
-      parameters: [{ type: "image", image: {link: imageUrl} }],
-    },
-    {
-      type: "body",
-      parameters: [{ type: "text", text: userName}],
-    }
-  ],
-  [templates.AGENDAR_PEDIDO]: (producto, precio, imageUrl) => [
-    {
-      type:"header",
-      parameters: [{type: "image", image: {link: imageUrl} }],
-    },
-    {
-      type: "body",
-      parameters: [
-        {type: "text", text: producto},
-        {type: "text", text: precio},
-      ],
-    }
-  ],
-  [templates.CATALOGO]: (userName) => [
-    {
-      type:"body",
-      parameters: [{ type: "text", text: sanitize(userName)}],
-    }
-  ],
-  [templates.ERROR_GENERICO]: (errorMessage) => [
-    {
-      type:"body",
-      parameters: [{ type: "text", text: sanitize(errorMessage)}],
-    },
-  ],
-  [templates.PAGINA_WEB]: (imageUrl) => [
-    {
-      type: "header",
-      parameters: [{ type: "image", image: {link: imageUrl} }],
-    },
-  ],
-}*/
-
 module.exports = {
   templates,
   enviarPlantillaWhatsApp,
   enviarPlantillaErrorGenerico,
   enviarMensajeTexto,
 };
-
-/* Body example for "agendar_pedido" template, botones no funcionan
-{
-  "messaging_product": "whatsapp",
-  "to": "526181556489",
-  "type": "template",
-  "template": {
-    "name": "agendar_pedido",
-    "language": {
-      "code": "es_MX"
-    },
-    "components": [
-      {
-        "type": "header",
-        "parameters": [
-          {
-            "type": "image",
-            "image": {
-              "link": "https://amigosafety.com/images/productos/1680213793_PANTALON%20FRENTE.png" 
-            }
-          }
-        ]
-      },
-      {
-        "type": "body",
-        "parameters": [
-          {
-            "type": "text",
-            "text": "Camisa de vestir" // Valor para {{1}}: Producto
-          },
-          {
-            "type": "text",
-            "text": "450.50" // Valor para {{2}}: Precio
-          }
-        ]
-      }
-    ]
-  }
-}
-
-Body example de pagina web
-{
-  "messaging_product": "whatsapp",
-  "to": "526181556489",
-  "type": "template",
-  "template": {
-    "name": "pagina_web",
-    "language": {
-      "code": "es_MX"
-    },
-    "components": [
-      {
-        "type": "header",
-        "parameters": [
-          {
-            "type": "image",
-            "image": {
-              "link": "https://amigosafety.com/images/productos/1680213793_PANTALON%20FRENTE.png" 
-            }
-          }
-        ]
-      }
-    ]
-  }
-}
-
-*/

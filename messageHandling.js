@@ -77,7 +77,7 @@ async function procesarBusquedaProductos(from, textoUsuario) {
       //Si no se encontró, buscar en conjuntos
       if (!productoEncontrado) {
         try {
-          const urlConjuntos = `${URL_API_PHP}/conjuntos?nombre=${encodeURIComponent(termino)}`;
+          const urlConjuntos = `${URL_API_PHP}/conjuntos.php?nombre=${encodeURIComponent(termino)}`;
           const resConj = await fetch(urlConjuntos);
 
           if (resConj.ok) {
@@ -184,6 +184,7 @@ async function handleIncomingMessage(payload) {
   if (userIntention.includes("catalogo") || userIntention.includes("ver menu")) {
     await sendTemplateMessage(from, templates.CATALOGO, { 
       header: { type: "document", link: URL_PDF_CATALOGO },
+
     });
   }
   
@@ -195,22 +196,23 @@ async function handleIncomingMessage(payload) {
     });
   }
 
-  // D. AGENDAR PEDIDO
+  // D. PEDIDO
   else if (userIntention.includes("agendar") || userIntention.includes("pedido") || userIntention.includes("ofertas")) {
-    await procesarBusquedaProductos(from, "Pantalon"); 
-  }
-  
-  // E. SALIR
-  else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
-    await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
+    await sendTemplateMessage(from, templates.PEDIDO, {}); 
   }
 
-  // F. BÚSQUEDA DE PRODUCTOS
+
+  // E. BÚSQUEDA DE PRODUCTOS
   else if (message.type === "text") {
     // Asumimos que cualquier otro texto es una búsqueda de productos
     await procesarBusquedaProductos(from, rawText);
   }
   
+  // F. SALIR
+  else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
+    await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
+  }
+
   // G. OPCIÓN NO RECONOCIDA
   else if (message.type !== "text") {
     await sendTextMessage(from, "Opción no reconocida. Por favor escribe 'Hola' para ver el menú.");
