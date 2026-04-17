@@ -1,4 +1,5 @@
 .env
+data/whatsapp-cron-state.json
 node_modules/
 logs/
 apiLog.txt

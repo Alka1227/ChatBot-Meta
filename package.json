@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "scrape:jokes": "node scripts/scrapeJokes.js"
+    "scrape:jokes": "node scripts/scrapeJokes.js",
+    "cron:jokes": "node scripts/cronRandomJokes.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.13.2",

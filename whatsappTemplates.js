@@ -14,6 +14,7 @@ function sanitize(text) {
 // Token de acceso generado en la consola de Meta
 const accessToken = process.env.BEREAER_TOKEN;
 const phoneNumberId = process.env.PHONE_NUMBER_ID;
+const graphApiVersion = process.env.GRAPH_API_VERSION || "v24.0";
 const provider = (process.env.WHATSAPP_PROVIDER || "meta").toLowerCase();
 const connectBaseUrl = (process.env.WHATSAPP_CONNECT_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 const connectApiKey = process.env.WHATSAPP_CONNECT_API_KEY;
@@ -30,16 +31,16 @@ async function enviarMensajeTexto(to, text) {
   const sessionContext = getSessionContext(to);
   const shouldUseConnect = provider === "connect" || !!sessionContext;
   if (shouldUseConnect) {
-    await enviarMensajeTextoConnect(to, text, sessionContext);
-    return;
+    return enviarMensajeTextoConnect(to, text, sessionContext);
   }
 
-  const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
+  const url = `https://graph.facebook.com/${graphApiVersion}/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: "whatsapp",
+    recipient_type: "individual",
     to: procesarNumero(to),
     type: "text",
-    text: { body: text },
+    text: { preview_url: false, body: text },
   };
 
   const headers = {
@@ -50,8 +51,10 @@ async function enviarMensajeTexto(to, text) {
   try {
     const response = await axios.post(url, payload, { headers });
     logExitoso(payload, response.data);
+    return true;
   } catch (error) {
     logError(payload, error);
+    return false;
   }
 }
 
@@ -83,8 +86,10 @@ async function enviarMensajeTextoConnect(to, text, sessionContext = null) {
   try {
     const response = await axios.post(url, payload, { headers });
     logExitoso(payload, response.data);
+    return true;
   } catch (error) {
     logError(payload, error);
+    return false;
   }
 }
 
