@@ -5,7 +5,7 @@ const fs = require('fs');
 const verifyWebhook = require("./webhookVerification.js");
 const webhookRouter = require("./webhook.js");
 const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 // Ruta del Get
 app.get("/webhook", verifyWebhook);

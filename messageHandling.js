@@ -1,37 +1,201 @@
 const fs = require("fs");
 const path = require("path");
-const {
-  templates,
-  enviarPlantillaWhatsApp,
-  enviarPlantillaErrorGenerico,
-  enviarMensajeTexto,
-} = require("./whatsappTemplates");
+const { enviarMensajeTexto } = require("./whatsappTemplates");
 
-// Alias para facilitar la lectura
-const sendTemplateMessage = enviarPlantillaWhatsApp;
 const sendTextMessage = enviarMensajeTexto;
 
-// --- CONSTANTES ---
-const IMAGEN_MENU = "https://play-lh.googleusercontent.com/IVI0a5ikpBt6BMclofFoupP4kBLHqC4VJWWjwbJnd_4UfDSmf1z6MepZbbXPeALnw0He";
-const IMAGEN_PEDIDO = "https://play-lh.googleusercontent.com/IVI0a5ikpBt6BMclofFoupP4kBLHqC4VJWWjwbJnd_4UfDSmf1z6MepZbbXPeALnw0He";
-const IMAGEN_PAGINA_WEB = "https://cdn-icons-png.flaticon.com/512/174/174855.png";
-const IP_LOCAL = process.env.IP_LOCAL || "192.168.1.2";
-const URL_API_PHP = `http://${IP_LOCAL}/chatbotAPI/`;
-const URL_PDF_CATALOGO = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
+const jokes = [
+  "Por que los pajaros no usan Facebook? Porque ya tienen Twitter.",
+  "Que le dice un jardinero a otro? Nos vemos cuando podamos.",
+  "Como se despiden los quimicos? Acido un placer.",
+  "Por que la computadora fue al doctor? Porque tenia un virus.",
+  "Que hace una abeja en el gimnasio? Zum-ba.",
+  "Por que el libro de matematicas estaba triste? Porque tenia muchos problemas.",
+  "Que le dice una impresora a otra? Esa hoja es tuya o es impresion mia?",
+  "Por que no se puede confiar en un atom? Porque lo componen todo.",
+  "Que hace una vaca cuando sale el sol? Sombra.",
+  "Por que el tomate se sonrojo? Porque vio al pepino sin ropa.",
+  "Como maldice un pollito a otro pollito? Caldito seas.",
+  "Que le dice un pez a otro pez? Nada.",
+  "Por que el cafe fue a la policia? Porque lo estaban moliendo.",
+  "Que le dice una iguana a su hermana gemela? Somos iguanitas.",
+  "Por que el reloj fue al gimnasio? Para ponerse en hora.",
+  "Que le dice una pared a otra pared? Nos vemos en la esquina.",
+  "Que hace una caja en el gimnasio? Crossfit.",
+  "Por que el lapiz esta feliz? Porque tiene buena punta.",
+  "Que le dijo el cero al ocho? Bonito cinturon.",
+  "Por que el hielo no se pelea? Porque se derrite.",
+  "Que hace un perro con un taladro? Taladrando.",
+  "Por que los esqueletos no pelean entre ellos? Porque no tienen agallas.",
+  "Como se llama el primo vegetariano de Bruce Lee? Broco Lee.",
+  "Que hace una naranja en la playa? Tomando fanta sol.",
+  "Por que la escoba esta contenta? Porque barre con todo.",
+  "Que le dice un semaforo a otro? No me mires, me estoy cambiando.",
+  "Como se llama un boomerang que no vuelve? Palo.",
+  "Por que el mar nunca se seca? Porque no sabe sumar.",
+  "Que hace una uva cuando la pisan? Da vino.",
+  "Por que el panadero no pudo dormir? Porque tenia mucho pan-samiento.",
+  "Como se llama el campeon de buceo japones? Tokofondo.",
+  "Y el subcampeon? Kasitoko.",
+  "Por que el celular fue al psicologo? Porque tenia muchas llamadas perdidas.",
+  "Que hace un mago despues de comer? Magordito.",
+  "Por que la luna va al medico? Porque tiene estrellas.",
+  "Que le dice un techo a otro techo? Techo de menos.",
+  "Por que el libro de historia estaba nervioso? Porque tenia examenes del pasado.",
+  "Como se llama el pez mas divertido? El pez payaso.",
+  "Que le dijo una cuchara a la gelatina? No tiembles, todo saldra bien.",
+  "Por que la silla fue a terapia? Porque no se sentia bien.",
+  "Que hace una foca en una computadora? Sella archivos.",
+  "Como se llama un gato que toca piano? Gatethoven.",
+  "Por que el robot estaba cansado? Porque trabajo a full carga.",
+  "Que hace una gallina en una iglesia? Reza por sus pollitos.",
+  "Como se dice pelo sucio en chino? Chin cham pu.",
+  "Que le dice un gusano a otro gusano? Voy a dar una vuelta a la manzana.",
+  "Por que el avion no pudo estudiar? Porque siempre estaba en modo avion.",
+  "Que hace una taza en una obra de teatro? Hace de cafe-cio.",
+  "Como se llama un dinosaurio que duerme? Dino-snorio.",
+  "Por que la pizza se graduo? Porque estaba muy completa.",
+  "Que le dice un cable a otro cable? Somos buena conexion.",
+  "Por que el numero 7 comio con tenedor? Porque el 8 ya habia comido.",
+  "Que hace un pato en una farmacia? Pide pan-tol.",
+  "Como se llama el rey de los quesos? Requeson.",
+  "Por que la nube no cuenta secretos? Porque se le escapan.",
+  "Que hace una tecla en la playa? Toma espacio.",
+  "Por que el volcan no se enoja? Porque explota de alegria.",
+  "Como se llama un oso sin dientes? Oso gomoso.",
+  "Que le dice una oveja a otra oveja? Beee-n dia.",
+  "Por que la bicicleta no se levanta sola? Porque esta dos-tirada.",
+  "Que hace un leon en un gimnasio? Musculo felino.",
+  "Como se llama un mosquito que canta? Mosquiton.",
+  "Por que la cebolla siempre llora? Porque es muy sensible.",
+  "Que hace una computadora en el mar? Navega por internet.",
+  "Por que la tortilla no se pelea? Porque se dobla facil.",
+  "Como se llama un perro mago? Labracadabrador.",
+  "Que hace un pez en la escuela? Nada de nada.",
+  "Por que el sol no va a la universidad? Porque ya tiene muchos rayos.",
+  "Que le dice un martillo a un clavo? Agarrate que alla voy.",
+  "Como se llama un elefante que no importa? Irrelefante.",
+  "Por que el arbol se metio a internet? Para tener mas ramas.",
+  "Que hace una banana con capa? Superplatano.",
+  "Por que la letra A fue al doctor? Porque estaba afonica.",
+  "Como se llama un pajaro sin plumas? Un pelicano en verano.",
+  "Que hace un teclado en misa? Da el enter.",
+  "Por que el agua nunca discute? Porque siempre fluye.",
+  "Que le dice una calculadora a un estudiante? Puedes contar conmigo.",
+  "Como se llama un gato gigante? Michilin.",
+  "Por que el pastel fue al dentista? Porque tenia caries de chocolate.",
+  "Que hace una estrella en clase? Brilla por su ausencia.",
+  "Por que la puerta no se estresa? Porque siempre se abre.",
+  "Como se llama un pan que se cae bien? Panita.",
+  "Que hace una pelota en la oficina? Rebota ideas.",
+  "Por que el champu no cuenta chismes? Porque se enjuaga.",
+  "Que le dice una cama a otra cama? Te veo en suenos.",
+  "Como se llama un mosquito optimista? Posi-tito.",
+  "Por que el queso no corre maratones? Porque se derrite en la meta.",
+  "Que hace un reloj en la cocina? Marca la hora del saz-on.",
+  "Por que la sal no canta? Porque le falta pimienta.",
+  "Como se llama el amigo del cafe? El companero de taza.",
+  "Que hace una moneda en la nieve? Frio de cambio.",
+  "Por que el cuaderno se enojo? Porque le arrancaron la hoja.",
+  "Como se llama un zapato inteligente? Sapiente.",
+  "Que hace una lampara triste? Se apaga.",
+  "Por que el helado fue al banco? Para congelar su cuenta.",
+  "Que le dice un foco a otro foco? Brillas hoy.",
+  "Como se llama un cafe que acaba de nacer? Expresito.",
+  "Por que la mesa no miente? Porque tiene cuatro patas de verdad.",
+  "Que hace una sopa en internet? Busca caldo de cultivo.",
+  "Como se llama un conejo elegante? Conejames Bond.",
+  "Por que el globo no fue al cole? Porque se le escapaban las respuestas.",
+  "Que le dice una nube a otra nube? Vamos a llover ideas.",
+  "Como se llama un dragon dormilon? Ronca-gon.",
+  "Por que el cepillo de dientes es buen amigo? Porque siempre te apoya.",
+  "Que hace una llave en el gimnasio? Abre oportunidades.",
+  "Por que el arroz no se preocupa? Porque todo se cocina a su tiempo.",
+  "Como se llama un koala con cafe? Koalatte.",
+  "Que le dice una alarma a otra alarma? Nos vemos al amanecer.",
+  "Por que la goma no aprueba examenes? Porque borra todo.",
+  "Que hace una mochila en vacaciones? Carga recuerdos.",
+  "Por que el espejo nunca llega tarde? Porque siempre se refleja a tiempo.",
+  "Como se llama un pulpo con ocho autos? Pulpo-tente.",
+  "Que hace una hoja en el agua? Va corriente abajo.",
+  "Por que el sofa esta tan tranquilo? Porque se toma todo con calma.",
+  "Que le dice una nube al sol? No te pongas tan radiante.",
+  "Como se llama un violinista sin violin? Ex-musico.",
+  "Por que el pastelero no usa reloj? Porque trabaja por hornadas.",
+  "Que hace un astronauta con lapiz? Dibuja via lactea.",
+  "Por que la radio sonrie? Porque tiene buena onda.",
+  "Como se llama un mono con tutú? Mono-ballet.",
+  "Que le dice una pila a otra pila? Nos vemos en el polo positivo.",
+  "Por que el calendario es exitoso? Porque tiene muchos dias buenos.",
+  "Que hace una cometa en la oficina? Se eleva profesionalmente.",
+  "Como se llama un unicornio dormido? Uni-zzz-cornio.",
+  "Por que el cafe y el pan son amigos? Porque hacen buena pareja.",
+  "Que le dice un pixel a otro pixel? Te veo un poco desenfocado.",
+  "Por que el tren no se estresa? Porque siempre va sobre rieles.",
+  "Como se llama un fantasma pesado? Espiritu de masa.",
+  "Que hace una sandia en una boda? Da un brindis fresco.",
+  "Por que el tomate nunca gana carreras? Porque siempre lo hacen pure.",
+  "Que le dice un emoji feliz a otro? Sonrie, que te leen.",
+  "Como se llama un caracol rapido? Turbo-col.",
+  "Por que el hielo es buen consejero? Porque te enfria la cabeza.",
+  "Que hace una rana con internet? Salta de link en link.",
+  "Por que el shampoo es poeta? Porque hace rimas espumosas.",
+  "Como se llama un mapa gracioso? Mapa-chiste.",
+  "Que le dice un wifi a otro wifi? Nos conectamos luego.",
+  "Por que la maleta no discute? Porque siempre carga con todo.",
+  "Que hace una dona en el gimnasio? Cardio con agujero.",
+  "Por que la cuchara no corre? Porque se queda en la sopa.",
+  "Como se llama un pez con corbata? Ejecutivo marino.",
+  "Que hace una estrella fugaz en WhatsApp? Deja un estado brillante.",
+  "Por que el limon no cuenta secretos? Porque exprime de mas.",
+  "Como se llama un robot que canta rancheras? Mariachi-tron.",
+  "Que le dice una nube de datos a otra? Respaldame por si llueve.",
+  "Por que la almohada es sabia? Porque consulta con la almohada.",
+  "Que hace una taza feliz? Se llena de alegria.",
+  "Por que el teclado no se pierde? Porque siempre tiene una tecla.",
+  "Como se llama un caballo en internet? Hiper-hipico.",
+  "Que hace una galleta en la playa? Se dora al sol.",
+  "Por que el papel no pelea? Porque se arruga.",
+  "Como se llama un vampiro vegetariano? Conde Brocoli.",
+  "Que le dice una bateria a un celular? Te doy energia positiva.",
+  "Por que la escuelita de peces cerro? Porque no daban pie con bola.",
+];
 
-//Diccionarios de palabras clave
-const GREETINGS = new Set([
-  "hola", "ola", "hloa", "holla", "halo", "hello", "hi", "hey",
-  "oli", "holis", "buenos dias", "buenas tardes", "buenas noches",
-  "que tal", "que onda", "k onda", "q hubo", "como estas",
-  "inicio", "start", "menu", "empezar"
-]);
+function loadGeneratedJokes() {
+  try {
+    const generatedPath = path.join(__dirname, "data", "jokes.generated.json");
+    if (!fs.existsSync(generatedPath)) return [];
+    const parsed = JSON.parse(fs.readFileSync(generatedPath, "utf8"));
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch (error) {
+    console.warn("No se pudo cargar jokes.generated.json:", error.message);
+    return [];
+  }
+}
 
-const RETURN_KEYWORDS = new Set([
-  "salir", "adios", "bye", "hasta luego",
-  "regresar", "volver", "inicio", "home",
-  "cancelar", "terminar", "fin"
-]);
+function buildJokesPool(baseJokes, generatedJokes) {
+  const seen = new Set();
+  const pool = [];
+  for (const joke of [...generatedJokes, ...baseJokes]) {
+    const normalized = String(joke)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    pool.push(joke);
+  }
+  return pool;
+}
+
+const generatedJokes = loadGeneratedJokes();
+const jokesPool = buildJokesPool(jokes, generatedJokes);
+console.log(`Pool de chistes cargado: base=${jokes.length}, generados=${generatedJokes.length}, total=${jokesPool.length}`);
+
+const conversationStateByUser = new Map();
 
 //Normaliza el texto de entrada para facilitar la comparación
 function normalizeInput(text) {
@@ -44,85 +208,18 @@ function normalizeInput(text) {
     .trim();
 }
 
-// Esta función busca un producto o conjunto y envía la plantilla AGENDAR_PEDIDO
-async function procesarBusquedaProductos(from, textoUsuario) {
-  try {
-    const terminosBusqueda = textoUsuario.split(',').map(t => t.trim()).filter(t => t.length > 0); //Divide por comas y limpia
-
-    let productosEncontrados = []; //Array para almacenar nombres de productos encontrados
-    let precioTotal = 0; //Precio acumulado
-
-    console.log(`Buscando: ${terminosBusqueda.join(" | ")}`);
-
-    for (const termino of terminosBusqueda) {
-
-      let productoEncontrado = null;
-
-      //Buscar en productos
-      try {
-        const urlProductos = `${URL_API_PHP}/api.php?nombre=${encodeURIComponent(termino)}`; //Endpoint de productos
-        const resProd = await fetch(urlProductos);
-
-        if (resProd.ok) { //Si la respuesta es OK
-          const data = await resProd.json(); //Parsea a JSON y lo guarda
-
-          if (Array.isArray(data) && data.length > 0) { //Verifica que haya resultados
-            productoEncontrado = data[0]; //Toma el primer producto encontrado
-          }
-        }
-      } catch (e) {
-        console.log("Error buscando en productos:", e.message);
-      }
-
-      //Si no se encontró, buscar en conjuntos
-      if (!productoEncontrado) {
-        try {
-          const urlConjuntos = `${URL_API_PHP}/conjuntos.php?nombre=${encodeURIComponent(termino)}`; //Endpoint de conjuntos
-          const resConj = await fetch(urlConjuntos);
-
-          if (resConj.ok) {
-            const data = await resConj.json();
-
-            if (Array.isArray(data) && data.length > 0) {
-              productoEncontrado = data[0];
-            }
-          }
-        } catch (e) {
-          console.log("Error buscando en conjuntos:", e.message);
-        }
-      }
-
-      //Si no encontro en ninguno
-      if (!productoEncontrado) continue;
-      productosEncontrados.push(productoEncontrado.nombre); //Si no encontro todos, manda los que si
-      const precioFloat = parseFloat(String(productoEncontrado.precio).replace(/[^0-9.]/g, "")); //Limpia y convierte el precio a float
-
-      if (isNaN(precioFloat) || precioFloat <= 0) {
-        console.log("Precio inválido detectado:", productoEncontrado.precio);
-        continue;  
-      }
-
-      precioTotal += precioFloat; //Esto se hace por cada producto encontrado para acumular el precio
-    }
-
-    //Respuesta al usuario
-    if (productosEncontrados.length === 0) {
-      await sendTextMessage(from, `No encontré ninguno de los productos de: "${textoUsuario}".`);
-      return;
-    }
-
-    const lista = productosEncontrados.join(" + "); //Une los nombres de productos con " + "
-    const precioFinal = precioTotal.toFixed(2); //Precio total con 2 decimales
-
-    await sendTemplateMessage(from, templates.AGENDAR_PEDIDO, {
-      header: { type: "image", link: IMAGEN_PEDIDO },
-      body: [lista, precioFinal]
-    });
-
-  } catch (error) {
-    console.error("Error general:", error);
-    await sendTextMessage(from, "Ocurrió un error al consultar los productos.");
+function nextJokeForUser(userId) {
+  const state = conversationStateByUser.get(userId) || { lastJokeIndex: -1 };
+  const hasGenerated = generatedJokes.length > 0;
+  const shouldPreferGenerated = hasGenerated && Math.random() < 0.8;
+  const preferredPool = shouldPreferGenerated ? generatedJokes : jokesPool;
+  const sourcePool = preferredPool.length > 0 ? preferredPool : jokes;
+  let nextIndex = Math.floor(Math.random() * sourcePool.length);
+  if (sourcePool.length > 1 && nextIndex === state.lastJokeIndex) {
+    nextIndex = (nextIndex + 1) % sourcePool.length;
   }
+  conversationStateByUser.set(userId, { lastJokeIndex: nextIndex, updatedAt: Date.now() });
+  return sourcePool[nextIndex];
 }
 
 
@@ -168,53 +265,10 @@ async function handleIncomingMessage(payload) {
 
   console.log(`Intención detectada: "${userIntention}"`);
 
-//Logica para responder según la intención del usuario
-
-  // A. MENÚ PRINCIPAL
-  const esSaludo = GREETINGS.has(userIntention) || Array.from(GREETINGS).some(g => userIntention.includes(g));
-  
-  if ((esSaludo && message.type === "text") || userIntention === "menu" || userIntention === "inicio") {
-    await sendTemplateMessage(from, templates.MENU_INICIO, {
-      header: { type: "image", link: IMAGEN_MENU },
-    });
-    return;
-  }
-
-  // B. CATÁLOGO
-  if (userIntention.includes("catalogo") || userIntention.includes("ver menu")) {
-    await sendTemplateMessage(from, templates.CATALOGO, { 
-      header: { type: "document", link: URL_PDF_CATALOGO },
-
-    });
-  }
-  
-  // C. PUNTO DE ENCUENTRO O ENVÍO
-  else if (userIntention.includes("punto de encuentro") || userIntention.includes("envio")) {
-    // Mandamos la plantilla pagina_web
-    await sendTemplateMessage(from, templates.PAGINA_WEB, {
-        header: { type: "image", link: IMAGEN_PAGINA_WEB }
-    });
-  }
-
-  // D. PEDIDO
-  else if (userIntention.includes("agendar") || userIntention.includes("pedido") || userIntention.includes("ofertas")) {
-    await sendTemplateMessage(from, templates.PEDIDO, {}); 
-  }
-
-  // E. SALIR
-  else if (RETURN_KEYWORDS.has(userIntention) || userIntention.includes("salir")) {
-    await sendTextMessage(from, "¡Gracias por visitarnos! Hasta pronto.");
-  }
-
-  // F. BÚSQUEDA DE PRODUCTOS
-  else if (message.type === "text") {
-    // Asumimos que cualquier otro texto es una búsqueda de productos
-    await procesarBusquedaProductos(from, rawText);
-  }
-
-  // G. OPCIÓN NO RECONOCIDA
-  else if (message.type !== "text") {
-    await sendTextMessage(from, "Opción no reconocida. Por favor escribe 'Hola' para ver el menú.");
+  // Respuesta estricta solo para las palabras exactas "chiste" y "otro".
+  if (message.type === "text" && (userIntention === "chiste" || userIntention === "otro")) {
+    const joke = nextJokeForUser(from);
+    await sendTextMessage(from, joke);
   }
 }
 

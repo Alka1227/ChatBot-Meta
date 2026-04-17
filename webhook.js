@@ -2,9 +2,15 @@ const fs = require("fs");
 const path = require("path");
 const router = require("express").Router();
 const handleIncomingMessage = require("./messageHandling.js");
+const {
+    isMetaPayload,
+    isWhatsappConnectPayload,
+    normalizeIncomingPayload,
+} = require("./whatsappConnectAdapter.js");
 
 router.post("/webhook", async (req , res)=>{
     const payload = req.body;
+    const headers = req.headers || {};
     //creamos el dir del log
     const logDir = path.join(__dirname, "logs");
     if(!fs.existsSync(logDir)){
@@ -15,11 +21,15 @@ router.post("/webhook", async (req , res)=>{
     fs.appendFileSync(path.join(logDir, "api_log.txt"), logEntry);
 
     //Procesar la petición
-    if(
-        payload?.object === "whatsapp" || payload?.object === "whatsapp_business_account"
-    ){
+    if (
+        isMetaPayload(payload) ||
+        isWhatsappConnectPayload(payload) ||
+        payload?.object === "whatsapp" ||
+        payload?.object === "whatsapp_business_account"
+    ) {
         try{
-            await handleIncomingMessage(payload);
+            const normalizedPayload = normalizeIncomingPayload(payload, headers);
+            await handleIncomingMessage(normalizedPayload);
         } catch (err){
             console.error("Error del mensaje: ", err);
             const errorLogEntry = `${new Date().toISOString()} - ERROR: ${err.message}\n${err.stack}\n`;
