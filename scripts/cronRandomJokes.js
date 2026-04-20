@@ -26,6 +26,11 @@ const WINDOW_3MIN_MS = 3 * 60 * 1000;
 const WINDOW_12H_MS = 12 * 60 * 60 * 1000;
 const PRUNE_MS = 8 * 24 * 60 * 60 * 1000;
 const SCHEDULE_MAX_TRIES = 250;
+const MIN_LOOP_SECONDS = 20;
+const MAX_LOOP_SECONDS = 80;
+
+let schedulerTimeout = null;
+let schedulerRunning = false;
 
 function parseHm(s) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(s).trim());
@@ -237,18 +242,18 @@ function findFirstDueSlot(nowMs, scheduledAt, sentSlot) {
   return -1;
 }
 
-async function main() {
+async function runRandomJokesTick() {
   const timeZone = process.env.CRON_TZ || "America/Mexico_City";
   const startHm = parseHm(process.env.CRON_WINDOW_START || "08:00");
   const endHm = parseHm(process.env.CRON_WINDOW_END || "20:00");
   const recipient = process.env.CRON_RECIPIENT;
   if (!recipient) {
     console.error("Falta CRON_RECIPIENT en .env");
-    process.exit(1);
+    return false;
   }
   if (!process.env.BEREAER_TOKEN || !process.env.PHONE_NUMBER_ID) {
     console.error("Faltan BEREAER_TOKEN o PHONE_NUMBER_ID en .env");
-    process.exit(1);
+    return false;
   }
 
   const now = new Date();
@@ -273,26 +278,26 @@ async function main() {
 
   if (!isInFixedWindow(nowMs, dayKey, timeZone, startHm, endHm)) {
     console.log("Fuera de ventana horaria; no se envía.");
-    process.exit(0);
+    return false;
   }
 
   if (countSentToday(state.sentAt, timeZone, now) >= MAX_PER_DAY) {
     console.log("Límite diario alcanzado.");
-    process.exit(0);
+    return false;
   }
   if (countInRollingWindow(state.sentAt, nowMs, WINDOW_12H_MS) >= MAX_PER_12H) {
     console.log("Límite de 12 h alcanzado.");
-    process.exit(0);
+    return false;
   }
   if (countInRollingWindow(state.sentAt, nowMs, WINDOW_3MIN_MS) >= MAX_PER_3MIN) {
     console.log("Límite de 3 min alcanzado.");
-    process.exit(0);
+    return false;
   }
 
   const slotIndex = findFirstDueSlot(nowMs, state.scheduledAt, state.sentSlot);
   if (slotIndex < 0) {
     console.log("Ningún slot pendiente en ventana de disparo.");
-    process.exit(0);
+    return false;
   }
 
   const jokes = JSON.parse(fs.readFileSync(JOKES_PATH, "utf8"));
@@ -301,17 +306,83 @@ async function main() {
   const ok = await enviarMensajeTexto(recipient, joke);
   if (!ok) {
     console.error("Envío fallido; el slot no se marca como enviado.");
-    process.exit(1);
+    return false;
   }
 
   state.sentSlot[slotIndex] = true;
   state.sentAt.push(new Date().toISOString());
   saveState(state);
   console.log(`Chiste enviado (slot ${slotIndex + 1}/${state.scheduledAt.length}).`);
-  process.exit(0);
+  return true;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+function readLoopBoundsSeconds() {
+  const min = Number(process.env.CRON_LOOP_MIN_SECONDS || MIN_LOOP_SECONDS);
+  const max = Number(process.env.CRON_LOOP_MAX_SECONDS || MAX_LOOP_SECONDS);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= 0 || min > max) {
+    return { min: MIN_LOOP_SECONDS, max: MAX_LOOP_SECONDS };
+  }
+  return { min, max };
+}
+
+function randomDelayMs() {
+  const { min, max } = readLoopBoundsSeconds();
+  const span = max - min;
+  const sec = span === 0 ? min : min + Math.floor(Math.random() * (span + 1));
+  return sec * 1000;
+}
+
+async function loopTick() {
+  if (schedulerRunning) {
+    console.log("Cron de chistes: tick omitido, ejecución previa en curso.");
+    scheduleNextTick();
+    return;
+  }
+  schedulerRunning = true;
+  try {
+    await runRandomJokesTick();
+  } catch (err) {
+    console.error("Cron de chistes: error en tick", err);
+  } finally {
+    schedulerRunning = false;
+    scheduleNextTick();
+  }
+}
+
+function scheduleNextTick() {
+  const delayMs = randomDelayMs();
+  schedulerTimeout = setTimeout(loopTick, delayMs);
+  console.log(`Cron de chistes: próximo tick en ${Math.round(delayMs / 1000)}s.`);
+}
+
+function startRandomJokesScheduler() {
+  if (schedulerTimeout) {
+    console.log("Cron de chistes: scheduler ya iniciado.");
+    return;
+  }
+  console.log("Cron de chistes: iniciando scheduler interno.");
+  scheduleNextTick();
+}
+
+function stopRandomJokesScheduler() {
+  if (!schedulerTimeout) return;
+  clearTimeout(schedulerTimeout);
+  schedulerTimeout = null;
+  schedulerRunning = false;
+  console.log("Cron de chistes: scheduler detenido.");
+}
+
+if (require.main === module) {
+  runRandomJokesTick()
+    .then((sent) => process.exit(sent ? 0 : 0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}
+
+module.exports = {
+  runRandomJokesTick,
+  startRandomJokesScheduler,
+  stopRandomJokesScheduler,
+};
