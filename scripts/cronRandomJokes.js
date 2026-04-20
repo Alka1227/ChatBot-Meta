@@ -11,10 +11,9 @@
 const fs = require("fs");
 const path = require("path");
 
-process.env.WHATSAPP_PROVIDER = "meta";
 require("dotenv").config();
 
-const { enviarMensajeTexto } = require("../whatsappTemplates.js");
+const { enviarMensajeTextoConOpciones } = require("../whatsappTemplates.js");
 
 const STATE_PATH = path.join(__dirname, "..", "data", "whatsapp-cron-state.json");
 const JOKES_PATH = path.join(__dirname, "..", "data", "jokes.generated.json");
@@ -244,6 +243,7 @@ function findFirstDueSlot(nowMs, scheduledAt, sentSlot) {
 
 async function runRandomJokesTick() {
   const timeZone = process.env.CRON_TZ || "America/Mexico_City";
+  const cronProvider = String(process.env.CRON_PROVIDER || "meta").toLowerCase();
   const startHm = parseHm(process.env.CRON_WINDOW_START || "08:00");
   const endHm = parseHm(process.env.CRON_WINDOW_END || "20:00");
   const recipient = process.env.CRON_RECIPIENT;
@@ -303,7 +303,10 @@ async function runRandomJokesTick() {
   const jokes = JSON.parse(fs.readFileSync(JOKES_PATH, "utf8"));
   const joke = sanitizeJoke(pickRandomJoke(jokes));
 
-  const ok = await enviarMensajeTexto(recipient, joke);
+  const ok = await enviarMensajeTextoConOpciones(recipient, joke, {
+    provider: cronProvider,
+    ignoreSessionContext: true,
+  });
   if (!ok) {
     console.error("Envío fallido; el slot no se marca como enviado.");
     return false;

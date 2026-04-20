@@ -15,7 +15,6 @@ function sanitize(text) {
 const accessToken = process.env.BEREAER_TOKEN;
 const phoneNumberId = process.env.PHONE_NUMBER_ID;
 const graphApiVersion = process.env.GRAPH_API_VERSION || "v24.0";
-const provider = (process.env.WHATSAPP_PROVIDER || "meta").toLowerCase();
 const connectBaseUrl = (process.env.WHATSAPP_CONNECT_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
 const connectApiKey = process.env.WHATSAPP_CONNECT_API_KEY;
 const connectTenantIdFromEnv = process.env.WHATSAPP_CONNECT_TENANT_ID;
@@ -28,8 +27,14 @@ function procesarNumero(to) {
 }
 
 async function enviarMensajeTexto(to, text) {
+  return enviarMensajeTextoConOpciones(to, text);
+}
+
+async function enviarMensajeTextoConOpciones(to, text, options = {}) {
+  const provider = String(options.provider || process.env.WHATSAPP_PROVIDER || "meta").toLowerCase();
+  const ignoreSessionContext = options.ignoreSessionContext === true;
   const sessionContext = getSessionContext(to);
-  const shouldUseConnect = provider === "connect" || !!sessionContext;
+  const shouldUseConnect = provider === "connect" || (!ignoreSessionContext && !!sessionContext);
   if (shouldUseConnect) {
     return enviarMensajeTextoConnect(to, text, sessionContext);
   }
@@ -116,4 +121,5 @@ function logError(payload, error) {
 
 module.exports = {
   enviarMensajeTexto,
+  enviarMensajeTextoConOpciones,
 };
